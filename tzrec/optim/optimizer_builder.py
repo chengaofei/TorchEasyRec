@@ -70,6 +70,30 @@ def create_sparse_optimizer(
         return optimizers.PartialRowWiseAdam, optimizer_kwargs
     elif optimizer_type == "rowwise_adagrad_optimizer":
         return rowwise_adagrad.RowWiseAdagrad, optimizer_kwargs
+    elif optimizer_type == "adadelta_optimizer":
+        if not hasattr(optimizers, "AdaDelta"):
+            raise RuntimeError(
+                "sparse adadelta_optimizer is not available in the public "
+                "torchrec / fbgemm-gpu releases yet. Please contact the "
+                "TorchEasyRec team to obtain the maintained torchrec and "
+                "fbgemm-gpu wheels (with the AdaDelta sparse-embedding "
+                "kernel) and reinstall."
+            )
+        # FBGEMM reuses the beta1 OptimizerArgs slot for AdaDelta's rho.
+        optimizer_kwargs["beta1"] = optimizer_kwargs.pop("rho")
+        return optimizers.AdaDelta, optimizer_kwargs
+    elif optimizer_type == "rmsprop_optimizer":
+        if not hasattr(optimizers, "RMSProp"):
+            raise RuntimeError(
+                "sparse rmsprop_optimizer is not available in the public "
+                "torchrec / fbgemm-gpu releases yet. Please contact the "
+                "TorchEasyRec team to obtain the maintained torchrec and "
+                "fbgemm-gpu wheels (with the RMSProp sparse-embedding "
+                "kernel) and reinstall."
+            )
+        # FBGEMM reuses the beta1 OptimizerArgs slot for RMSProp's alpha.
+        optimizer_kwargs["beta1"] = optimizer_kwargs.pop("alpha")
+        return optimizers.RMSProp, optimizer_kwargs
     else:
         raise ValueError(f"Unknown optimizer: {optimizer_type}")
 
@@ -105,6 +129,10 @@ def create_dense_optimizer(
         beta2 = optimizer_kwargs.pop("beta2")
         optimizer_kwargs["betas"] = (beta1, beta2)
         return torch.optim.AdamW, optimizer_kwargs
+    elif optimizer_type == "adadelta_optimizer":
+        return torch.optim.Adadelta, optimizer_kwargs
+    elif optimizer_type == "rmsprop_optimizer":
+        return torch.optim.RMSprop, optimizer_kwargs
     else:
         raise ValueError(f"Unknown optimizer: {optimizer_type}")
 
