@@ -1010,13 +1010,11 @@ class RankIntegrationTest(unittest.TestCase):
         with open(model_acc_path) as f:
             acc_cfg = json.load(f)
             self.assertEqual(acc_cfg["cand_seq_pk"], "cand_seq")
-            self.assertEqual(acc_cfg["ENABLE_AOT"], "1")
 
     @mark_ci_scope("h20")
     @unittest.skipIf(*gpu_unavailable)
     def test_rank_dlrm_hstu_train_eval_export(self):
-        # Default path: UNIFIED_AOT defaults to disabled, uses legacy
-        # two-stage export (sparse JIT + dense AOTI).
+        # Default path: legacy two-stage export (sparse JIT + dense AOTI).
         self._test_rank_dlrm_hstu_train_eval_export(export_env_str="ENABLE_AOT=1")
         # Two-stage export must produce both the JIT sparse model and the
         # AOTI dense model.
@@ -1025,24 +1023,40 @@ class RankIntegrationTest(unittest.TestCase):
                 os.path.join(self.test_dir, "export/scripted_sparse_model.pt")
             )
         )
+        with open(os.path.join(self.test_dir, "export/model_acc.json")) as f:
+            self.assertEqual(json.load(f).get("ENABLE_AOT"), "1")
 
     @mark_ci_scope("h20")
     @unittest.skipIf(*gpu_unavailable)
     def test_rank_dlrm_hstu_train_eval_export_unified_aot(self):
-        # Verify the unified AOTI export path (UNIFIED_AOT=1) for DLRM-HSTU.
-        self._test_rank_dlrm_hstu_train_eval_export(
-            export_env_str="ENABLE_AOT=1 UNIFIED_AOT=1"
-        )
+        # Unified AOTI export (ENABLE_AOT=2): fused sparse+dense single .pt2.
+        self._test_rank_dlrm_hstu_train_eval_export(export_env_str="ENABLE_AOT=2")
         # Unified export must NOT produce the legacy JIT sparse model file.
         self.assertFalse(
             os.path.exists(
                 os.path.join(self.test_dir, "export/scripted_sparse_model.pt")
             )
         )
-        # model_acc.json must explicitly record UNIFIED_AOT=1.
+        # model_acc.json must explicitly record ENABLE_AOT=2.
         with open(os.path.join(self.test_dir, "export/model_acc.json")) as f:
             acc_cfg = json.load(f)
-            self.assertEqual(acc_cfg.get("UNIFIED_AOT"), "1")
+            self.assertEqual(acc_cfg.get("ENABLE_AOT"), "2")
+
+    @mark_ci_scope("h20")
+    @unittest.skipIf(*gpu_unavailable)
+    def test_rank_dlrm_hstu_train_eval_export_autotune_with_sample_inputs(self):
+        # Exercise the AOTI_AUTOTUNE_WITH_SAMPLE_INPUTS path with a small
+        # MAX_EXPORT_BATCH_SIZE so the FX-Interpreter bench walk stays light.
+        self._test_rank_dlrm_hstu_train_eval_export(
+            export_env_str=(
+                "ENABLE_AOT=1 AOTI_AUTOTUNE_WITH_SAMPLE_INPUTS=1 "
+                "MAX_EXPORT_BATCH_SIZE=2"
+            )
+        )
+        with open(os.path.join(self.test_dir, "export/model_acc.json")) as f:
+            acc_cfg = json.load(f)
+            self.assertEqual(acc_cfg.get("AOTI_AUTOTUNE_WITH_SAMPLE_INPUTS"), "1")
+            self.assertEqual(acc_cfg.get("MAX_EXPORT_BATCH_SIZE"), "2")
 
     @mark_ci_scope("h20")
     @unittest.skipIf(*gpu_unavailable)

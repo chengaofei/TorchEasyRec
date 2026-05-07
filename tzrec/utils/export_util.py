@@ -227,7 +227,7 @@ def export_model_normal(
         model.eval()
 
         data = batch.to_dict(sparse_dtype=torch.int64)
-        mixed_precision = acc_utils.resolve_mixed_precision(pipeline_config)
+        mixed_precision = acc_utils.mixed_precision_for_export(pipeline_config)
         autocast_dtype = acc_utils.mixed_precision_to_dtype(mixed_precision)
         if acc_utils.is_trt() or acc_utils.is_aot():
             data = OrderedDict(sorted(data.items()))
